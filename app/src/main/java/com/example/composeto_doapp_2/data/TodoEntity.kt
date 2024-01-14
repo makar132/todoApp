@@ -13,8 +13,7 @@ data class TodoEntity(
     @ColumnInfo("title") val title: String,
     @ColumnInfo("description") val description: String,
     @ColumnInfo("state") val isCompleted: Boolean,
+    @ColumnInfo("addedDate") val addDate : String =SimpleDateFormat("yyyy/MM/dd hh:mm", Locale.getDefault()).format(Date(System.currentTimeMillis()))
+
 
 )
-val TodoEntity.addDate:String
-    get() =
-        SimpleDateFormat("yyyy/MM/dd hh:mm", Locale.getDefault()).format(Date(System.currentTimeMillis()))

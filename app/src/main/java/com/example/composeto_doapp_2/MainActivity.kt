@@ -57,6 +57,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -77,7 +78,6 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.composeto_doapp_2.data.TodoEntity
-import com.example.composeto_doapp_2.data.addDate
 import com.example.composeto_doapp_2.ui.theme.ComposeTodoApp2Theme
 import com.example.composeto_doapp_2.vm.TodoViewModel
 
@@ -107,6 +107,9 @@ class MainActivity : ComponentActivity() {
 fun ToDoApp(todoViewModel : TodoViewModel = viewModel()) {
     // Compose code to arrange TaskList and TaskInput
 
+    LaunchedEffect(Unit) {
+        todoViewModel.init()
+    }
     val tasks by todoViewModel.todoList.collectAsState()
     val showLoader by todoViewModel.loadingScreen.collectAsState()
     val (dialogopen, setDialogOpen) = remember {
@@ -237,78 +240,86 @@ fun ToDoApp(todoViewModel : TodoViewModel = viewModel()) {
 
         }
     }
-    Scaffold(containerColor = colorScheme.secondary, floatingActionButton = {
-        FloatingActionButton(contentColor = Color.White,
-            containerColor = colorScheme.primary,
-            onClick = { setDialogOpen(true) }) {
-            Icon(Icons.Default.AddCircle, contentDescription = null)
-        }
-    }) { paddings ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize(),
-            contentAlignment = Alignment.Center
+    if (showLoader) {
+        AnimatedVisibility(
+            visible = showLoader,
+            enter = fadeIn(),
+            exit = fadeOut()
         ) {
-            AnimatedVisibility(
-                visible = showLoader,
-                enter = scaleIn(),
-                exit = fadeOut()
-            ) {
-                LoadingDialog()
+            LoadingDialog()
+            //SmoothAnimationExample()
+        }
+    } else {
+        Scaffold(containerColor = colorScheme.secondary, floatingActionButton = {
+            FloatingActionButton(contentColor = Color.White,
+                containerColor = colorScheme.primary,
+                onClick = { setDialogOpen(true) }) {
+                Icon(Icons.Default.AddCircle, contentDescription = null)
             }
-            AnimatedVisibility(
-                visible = tasks.isEmpty() && !showLoader,
-                enter = scaleIn() + fadeIn(),
-                exit = scaleOut() + fadeOut()
+        }) { paddings ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize(),
+                contentAlignment = Alignment.Center
             ) {
-                Text(text = "No Todos Yet!", color = Color.White, fontSize = 22.sp)
-            }
-            AnimatedVisibility(
-                visible = tasks.isNotEmpty() && !showLoader,
-                enter = scaleIn() + fadeIn(),
-                exit = scaleOut() + fadeOut()
-            ) {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(
-                            bottom = paddings.calculateBottomPadding() + 8.dp,
-                            top = 8.dp,
-                            end = 8.dp,
-                            start = 8.dp
-                        ),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    state = rememberLazyListState()
+
+                AnimatedVisibility(
+                    visible = tasks.isEmpty(),
+                    enter = scaleIn() + fadeIn(),
+                    exit = scaleOut() + fadeOut()
                 ) {
+                    Text(text = "No Todos Yet!", color = Color.White, fontSize = 22.sp)
+                }
+                AnimatedVisibility(
+                    visible = tasks.isNotEmpty(),
+                    enter = fadeIn(),
+                    exit = fadeOut()
+                ) {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(
+                                bottom = paddings.calculateBottomPadding() + 8.dp,
+                                top = 8.dp,
+                                end = 8.dp,
+                                start = 8.dp
+                            ),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        state = rememberLazyListState()
+                    ) {
 
-                    items(tasks.sortedBy { it.isCompleted }, key = { it.todoId }) { todoEntity ->
+                        items(
+                            tasks.sortedBy { it.isCompleted },
+                            key = { it.todoId }) { todoEntity ->
 
-                        TodoItem(
-                            todo = todoEntity,
-                            onClick = {
-                                todoViewModel.updateTask(
-                                    todoEntity.copy(isCompleted = !todoEntity.isCompleted)
-                                )
-                            }, onEdit = {
-                                setTitle(todoEntity.title)
-                                setDescription(todoEntity.description)
-                                setUpdateTodoId(todoEntity.todoId)
-                                setUpdateTodoState(todoEntity.isCompleted)
-                                setDialogOpen(true)
+                            TodoItem(
+                                todo = todoEntity,
+                                onClick = {
+                                    todoViewModel.updateTask(
+                                        todoEntity.copy(isCompleted = !todoEntity.isCompleted)
+                                    )
+                                }, onEdit = {
+                                    setTitle(todoEntity.title)
+                                    setDescription(todoEntity.description)
+                                    setUpdateTodoId(todoEntity.todoId)
+                                    setUpdateTodoState(todoEntity.isCompleted)
+                                    setDialogOpen(true)
 
 
-                            },
-                            onDelete = {
-                                todoViewModel.removeTask(todoEntity)
-                            }
-                        )
+                                },
+                                onDelete = {
+                                    todoViewModel.removeTask(todoEntity)
+                                }
+                            )
+                        }
                     }
+
                 }
 
+
             }
-
-
         }
+
     }
 
 }
@@ -332,7 +343,7 @@ fun LazyItemScope.TodoItem(
             .fillMaxWidth()
             .animateItemPlacement(
                 animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioHighBouncy,
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
                     stiffness = Spring.StiffnessLow
                 )
             ), contentAlignment = Alignment.BottomEnd
@@ -441,12 +452,6 @@ fun LazyItemScope.TodoItem(
     }
 }
 
-@Composable
-fun Greeting(name : String, modifier : Modifier = Modifier) {
-    Text(
-        text = "Hello $name!", modifier = modifier
-    )
-}
 
 @Composable
 private fun ProgressIndicatorLoading(

@@ -10,8 +10,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
@@ -22,18 +22,18 @@ class TodoViewModel : ViewModel(), KoinComponent {
 
     private val repo : TodoRepository by inject()
 
-    private var _loadingScreen = MutableStateFlow(false)
+    private var _loadingScreen = MutableStateFlow(true)
     val loadingScreen : StateFlow<Boolean> = _loadingScreen
 
     private val _todoList : MutableStateFlow<List<TodoEntity>> = MutableStateFlow(emptyList())
     val todoList = _todoList.asStateFlow()
 
 
-    // Implement methods to add, remove, and update todos
-    init {
+    fun init() {
         viewModelScope.launch {
             getAllTodos()
         }
+
 
     }
 
@@ -49,15 +49,22 @@ class TodoViewModel : ViewModel(), KoinComponent {
         viewModelScope.launch {
             startLoading()
             try {
-                delay(1000)
+
+                delay(1500)
                 withContext(Dispatchers.Default) {
-                    repo.getAllTodosStream().onEach { data ->
-                        _todoList.value = data
-                    }.launchIn(viewModelScope)
+                  
+                    _todoList.value=repo.getAllTodosStream().first()
+
                 }
 
             } finally {
                 stopLoading()
+            }
+
+            withContext(Dispatchers.Default){
+                repo.getAllTodosStream().collectLatest {
+                    _todoList.value=it
+                }
             }
 
         }
