@@ -6,12 +6,12 @@ import androidx.lifecycle.viewModelScope
 import com.example.composeto_doapp.data.local.entities.TodoEntity
 import com.example.composeto_doapp.data.repository.TodoRepository
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
@@ -20,12 +20,14 @@ import org.koin.core.component.inject
 class TodoViewModel : ViewModel(), KoinComponent {
     // MutableStateList to hold the list of items
 
-    private val repo : TodoRepository by inject()
+    private val repo: TodoRepository by inject()
 
     private var _loadingScreen = MutableStateFlow(true)
-    val loadingScreen : StateFlow<Boolean> = _loadingScreen
+    val loadingScreen: StateFlow<Boolean> = _loadingScreen
 
-    private val _todoList : MutableStateFlow<List<TodoEntity>> = MutableStateFlow(emptyList())
+    private val _todoList: MutableStateFlow<List<TodoEntity>> = MutableStateFlow(
+        mutableListOf()
+    )
     val todoList = _todoList.asStateFlow()
 
 
@@ -47,54 +49,67 @@ class TodoViewModel : ViewModel(), KoinComponent {
 
     private suspend fun getAllTodos() {
         viewModelScope.launch {
-            startLoading()
-            try {
 
-                delay(1500)
-                withContext(Dispatchers.Default) {
+            //show loader -> load initial data from room DB -> stop loader
+            withContext(Dispatchers.IO) {
+                startLoading()
 
-                    _todoList.value = repo.getAllTodosStream().first()
+                try {
+                    _todoList.value = repo.getAllTodosStream().flowOn(Dispatchers.IO).first()
+
+                } catch (_: Exception) {
+
+                }
+            }.apply {
+                viewModelScope.launch(Dispatchers.Main) {
+                    stopLoading()
+                }
+            }
+
+            //collect data changes from the room db
+            withContext(Dispatchers.IO) {
+
+                try {
+                    repo.getAllTodosStream().flowOn(Dispatchers.IO).collectLatest {
+                            _todoList.value = it.toMutableList()
+                        }
+                } catch (_: Exception) {
 
                 }
 
-            } finally {
-                stopLoading()
             }
 
-            withContext(Dispatchers.Default) {
-                repo.getAllTodosStream().collectLatest {
-                    _todoList.value = it
-                }
-            }
 
         }
-
-
     }
 
-    fun addTodo(newTodoEntity : TodoEntity) {
+
+    fun addTodo(newTodoEntity: TodoEntity) {
         viewModelScope.launch {
 
             withContext(Dispatchers.Default) {
                 repo.insertTodo(todo = newTodoEntity)
+
             }
         }
 
     }
 
 
-    fun removeTask(todoEntity : TodoEntity) {
+    fun removeTask(todoEntity: TodoEntity) {
         viewModelScope.launch {
             withContext(Dispatchers.Default) {
                 repo.deleteTodo(todoEntity)
+
             }
         }
     }
 
-    fun updateTask(todoEntity : TodoEntity) {
+    fun updateTask(todoEntity: TodoEntity) {
         viewModelScope.launch {
             withContext(Dispatchers.Default) {
                 repo.updateTodo(todoEntity)
+
             }
         }
     }
